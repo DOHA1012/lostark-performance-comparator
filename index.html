@@ -27,40 +27,42 @@
             <button id="nav-btn-rankings" class="nav-tab">🏆 전체 순위표 (Rankings Table)</button>
         </nav>
 
-        <!-- ================= PAGE 1: SETUP VIEW ================= -->
-        <div id="view-setup" class="page-view" style="position: relative;">
-            <!-- Loading Overlay -->
-            <div id="db-loading-overlay" class="loading-overlay">
-                <div class="loading-spinner"></div>
-                <p class="loading-text">로스트아크 실시간 전투력 지표를 API에서 불러오고 있습니다...</p>
-            </div>
-            <!-- Global Query Filter Settings Panel -->
-            <section class="glass-card query-settings-section" style="margin-bottom: 2rem; padding: 1.5rem;">
-                <h2 class="section-title" style="margin-bottom: 1.2rem; font-size: 1.25rem; display: flex; align-items: center; gap: 0.5rem;">
-                    🌐 실시간 API 데이터 필터 설정 (Raid & Difficulty Settings)
-                </h2>
-                <div class="query-settings-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.2rem;">
-                    <div class="slot-filter-field">
-                        <label for="global-boss-select">레이드 / 보스 (Boss)</label>
-                        <select id="global-boss-select">
-                            <!-- Filled dynamically in app.js -->
-                        </select>
-                    </div>
-                    <div class="slot-filter-field">
-                        <label for="global-difficulty-select">난이도 (Difficulty)</label>
-                        <select id="global-difficulty-select">
-                            <!-- Filled dynamically in app.js -->
-                        </select>
-                    </div>
-                    <div class="slot-filter-field">
-                        <label for="global-patch-select">패치 버전 (Patch)</label>
-                        <select id="global-patch-select">
-                            <option value="jun26" selected>최신 패치 (jun26)</option>
-                            <option value="mar26">이전 패치 (mar26)</option>
-                        </select>
-                    </div>
+        <!-- Loading Overlay -->
+        <div id="db-loading-overlay" class="loading-overlay">
+            <div class="loading-spinner"></div>
+            <p class="loading-text">로스트아크 실시간 전투력 지표를 API에서 불러오고 있습니다...</p>
+        </div>
+
+        <!-- Global Query Filter Settings Panel -->
+        <section class="glass-card query-settings-section" style="margin-bottom: 2rem; padding: 1.5rem;">
+            <h2 class="section-title" style="margin-bottom: 1.2rem; font-size: 1.25rem; display: flex; align-items: center; gap: 0.5rem;">
+                🌐 실시간 API 데이터 필터 설정 (Raid & Difficulty Settings)
+            </h2>
+            <div class="query-settings-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.2rem;">
+                <div class="slot-filter-field">
+                    <label for="global-boss-select">레이드 / 보스 (Boss)</label>
+                    <select id="global-boss-select">
+                        <!-- Filled dynamically in app.js -->
+                    </select>
                 </div>
-            </section>
+                <div class="slot-filter-field">
+                    <label for="global-difficulty-select">난이도 (Difficulty)</label>
+                    <select id="global-difficulty-select">
+                        <!-- Filled dynamically in app.js -->
+                    </select>
+                </div>
+                <div class="slot-filter-field">
+                    <label for="global-patch-select">패치 버전 (Patch)</label>
+                    <select id="global-patch-select">
+                        <option value="jun26" selected>최신 패치 (jun26)</option>
+                        <option value="mar26">이전 패치 (mar26)</option>
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= PAGE 1: SETUP VIEW ================= -->
+        <div id="view-setup" class="page-view">
 
             <!-- Comparison Slots Panel -->
             <section class="glass-card comparison-slots-section">
