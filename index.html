@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>로스트아크 직업각인 성능 비교기</title>
+    <!-- Google Fonts for Modern Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+
+    <div class="app-container">
+        <!-- App Header -->
+        <header class="app-header">
+            <h1 class="logo-text">LOST ARK</h1>
+            <p class="subtitle">Relative Performance Multiplier Dashboard</p>
+        </header>
+
+        <!-- ================= PAGE 1: SETUP VIEW ================= -->
+        <div id="view-setup" class="page-view" style="position: relative;">
+            <!-- Loading Overlay -->
+            <div id="db-loading-overlay" class="loading-overlay">
+                <div class="loading-spinner"></div>
+                <p class="loading-text">로스트아크 실시간 전투력 지표를 API에서 불러오고 있습니다...</p>
+            </div>
+            
+            <!-- Comparison Slots Panel -->
+            <section class="glass-card comparison-slots-section">
+                <div class="slots-header">
+                    <h2 class="section-title">⚔️ 비교 대상 선택 (Select Targets)</h2>
+                    <button id="btn-add-slot" class="btn btn-primary">+ 비교 대상 추가</button>
+                </div>
+                <div class="slots-container" id="slots-container">
+                    <!-- Dynamic slots will be added here -->
+                </div>
+                
+                <!-- Action Bar to navigate to Results Page -->
+                <div class="action-bar-center" style="display: flex; justify-content: center; margin-top: 2.5rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.05);">
+                    <button id="btn-view-results" class="btn btn-primary" style="padding: 1rem 3rem; font-size: 1.1rem; border-radius: 12px; font-weight: 700; letter-spacing: 0.05em; box-shadow: 0 0 25px rgba(168, 85, 247, 0.45);">
+                        ⚔️ 성능 비교 결과 보기 (View Results)
+                    </button>
+                </div>
+            </section>
+        </div>
+
+        <!-- ================= PAGE 2: RESULTS VIEW ================= -->
+        <div id="view-results" class="page-view" style="display: none;">
+            <div class="results-header-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+                <button id="btn-back-to-setup" class="btn" style="background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12); color: var(--text-main); padding: 0.75rem 1.5rem; font-size: 0.95rem; border-radius: 10px; display: inline-flex; align-items: center; gap: 0.5rem;">
+                    ⬅️ 세팅 변경하기 (Edit Settings)
+                </button>
+                <div class="results-title-group" style="text-align: right;">
+                    <h2 class="section-title" style="margin-bottom: 0; font-size: 1.5rem;">📊 상대 성능 분석 결과</h2>
+                    <span style="font-size: 0.85rem; color: var(--text-muted); font-family: var(--font-heading);">전체 스펙 평균 대비 배율 표시 (Compared to Global Average)</span>
+                </div>
+            </div>
+
+            <!-- Comparison Results Panel -->
+            <div class="results-layout">
+                <!-- Dynamic comparison cards for nDPS, DPS, rDPS, uDPS -->
+                <main class="metrics-grid">
+                    <!-- nDPS Card -->
+                    <div class="glass-card metric-card" id="card-ndps">
+                        <div class="metric-header">
+                            <h3>nDPS 성능</h3>
+                            <span class="badge badge-purple">Normal DPS</span>
+                        </div>
+                        <div class="chart-container">
+                            <!-- Custom animated SVG bar chart will render here -->
+                        </div>
+                        <div class="metric-table-container">
+                            <table class="metric-table">
+                                <thead>
+                                    <tr>
+                                        <th>대상</th>
+                                        <th>상대 DPS</th>
+                                        <th>전체 평균 대비</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Rows filled dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- DPS Card -->
+                    <div class="glass-card metric-card" id="card-dps">
+                        <div class="metric-header">
+                            <h3>DPS 성능</h3>
+                            <span class="badge badge-blue">Raw DPS</span>
+                        </div>
+                        <div class="chart-container"></div>
+                        <div class="metric-table-container">
+                            <table class="metric-table">
+                                <thead>
+                                    <tr>
+                                        <th>대상</th>
+                                        <th>상대 DPS</th>
+                                        <th>전체 평균 대비</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- rDPS Card -->
+                    <div class="glass-card metric-card" id="card-rdps">
+                        <div class="metric-header">
+                            <h3>rDPS 성능</h3>
+                            <span class="badge badge-emerald">Synergy DPS</span>
+                        </div>
+                        <div class="chart-container"></div>
+                        <div class="metric-table-container">
+                            <table class="metric-table">
+                                <thead>
+                                    <tr>
+                                        <th>대상</th>
+                                        <th>상대 DPS</th>
+                                        <th>전체 평균 대비</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- uDPS Card -->
+                    <div class="glass-card metric-card" id="card-udps">
+                        <div class="metric-header">
+                            <h3>uDPS 성능</h3>
+                            <span class="badge badge-red">Ultimate DPS</span>
+                        </div>
+                        <div class="chart-container"></div>
+                        <div class="metric-table-container">
+                            <table class="metric-table">
+                                <thead>
+                                    <tr>
+                                        <th>대상</th>
+                                        <th>상대 DPS</th>
+                                        <th>전체 평균 대비</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </main>
+
+                <!-- Cross-Comparison Matrix & Summary -->
+                <aside class="summary-sidebar">
+                    <div class="glass-card matrix-card">
+                        <h3 class="section-title">📊 1:1 상대 효율 비교 (Cross Multipliers)</h3>
+                        <div class="matrix-select-group">
+                            <label for="matrix-metric-select">기준 지표</label>
+                            <select id="matrix-metric-select">
+                                <option value="udps" selected>uDPS (Ultimate DPS)</option>
+                                <option value="ndps">nDPS (Normal DPS)</option>
+                                <option value="dps">DPS (Raw DPS)</option>
+                                <option value="rdps">rDPS (Synergy DPS)</option>
+                            </select>
+                        </div>
+                        <div class="matrix-container" id="matrix-container">
+                            <!-- Cross comparison grid renders here -->
+                        </div>
+                    </div>
+
+                    <div class="glass-card analysis-card">
+                        <h3 class="section-title">💡 세팅 딜 비교 요약 (Analysis Summary)</h3>
+                        <div class="analysis-content" id="analysis-content">
+                            비교 대상을 2개 이상 선택해 주세요.
+                        </div>
+                    </div>
+                </aside>
+            </div>
+        </div>
+
+
+        <!-- App Footer -->
+        <footer class="app-footer-bar">
+            <p>Data from lostark.bible | Nightmare Difficulty (ilvl 1740-1810) | Combined Patches Database</p>
+        </footer>
+    </div>
+
+    <!-- Load Local Database -->
+    <script src="database.js"></script>
+    <!-- Load App Logic -->
+    <script src="app.js"></script>
+</body>
+</html>
