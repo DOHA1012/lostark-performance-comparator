@@ -364,6 +364,42 @@ function setupEventListeners() {
             reloadDatabase();
         });
     }
+
+    // Initialize Tab Navigation and Rankings Sorting Listeners
+    const btnComp = document.getElementById('nav-btn-comparator');
+    const btnRank = document.getElementById('nav-btn-rankings');
+    const viewSetup = document.getElementById('view-setup');
+    const viewResults = document.getElementById('view-results');
+    const viewRankings = document.getElementById('view-rankings');
+    const rankMetricSelect = document.getElementById('ranking-metric-select');
+
+    if (btnComp && btnRank && viewSetup && viewResults && viewRankings) {
+        btnComp.addEventListener('click', () => {
+            btnComp.classList.add('active');
+            btnRank.classList.remove('active');
+            viewRankings.style.display = 'none';
+            if (viewResults.style.display === 'block') {
+                viewSetup.style.display = 'none';
+            } else {
+                viewSetup.style.display = 'block';
+            }
+        });
+
+        btnRank.addEventListener('click', () => {
+            btnRank.classList.add('active');
+            btnComp.classList.remove('active');
+            viewSetup.style.display = 'none';
+            viewResults.style.display = 'none';
+            viewRankings.style.display = 'block';
+            renderRankingsTable();
+        });
+    }
+
+    if (rankMetricSelect) {
+        rankMetricSelect.addEventListener('change', () => {
+            renderRankingsTable();
+        });
+    }
 }
 
 // Get active valid targets
@@ -1100,4 +1136,62 @@ async function reloadDatabase() {
         }
         updateSlotTarget(slot);
     });
+
+    // 3. If rankings view is currently active, update the ranking table content
+    const viewRankings = document.getElementById('view-rankings');
+    if (viewRankings && viewRankings.style.display === 'block') {
+        renderRankingsTable();
+    }
+}
+
+function renderRankingsTable() {
+    const tableBody = document.getElementById('rankings-table-body');
+    const rankMetricSelect = document.getElementById('ranking-metric-select');
+    if (!tableBody || !rankMetricSelect) return;
+    const rankingMetric = rankMetricSelect.value;
+
+    // Filter out virtual global averages and only sort base engravings (type: 'spec')
+    const specs = lostArkDatabase.filter(item => item.type === 'spec');
+    
+    // Sort by selected metric descending
+    specs.sort((a, b) => (b.values[rankingMetric] || 0) - (a.values[rankingMetric] || 0));
+    
+    // Get overall average for multiplier comparison
+    const avgVal = globalAverages[rankingMetric] || 1;
+
+    let html = "";
+    specs.forEach((item, idx) => {
+        const rank = idx + 1;
+        const val = item.values[rankingMetric] || 0;
+        const mult = val / avgVal;
+        const diffPercent = ((mult - 1) * 100).toFixed(1);
+        const prefix = mult >= 1.0 ? '+' : '';
+        const multText = `${mult.toFixed(2)}x (${prefix}${diffPercent}%)`;
+        const multClass = mult >= 1.0 ? 'multiplier-up' : 'multiplier-down';
+
+        let rowClass = "";
+        if (rank === 1) rowClass = "rank-1";
+        else if (rank === 2) rowClass = "rank-2";
+        else if (rank === 3) rowClass = "rank-3";
+
+        // Build metric values
+        const udpsText = formatNumber(item.values.udps || 0);
+        const ndpsText = formatNumber(item.values.ndps || 0);
+        const dpsText = formatNumber(item.values.dps || 0);
+        const rdpsText = formatNumber(item.values.rdps || 0);
+
+        html += `
+            <tr class="${rowClass}">
+                <td style="text-align: center; padding: 0.8rem;"><span class="rank-badge">${rank}</span></td>
+                <td style="padding: 0.8rem; font-weight: 500; font-family: var(--font-heading);">${item.class_kor}</td>
+                <td style="padding: 0.8rem; color: var(--text-secondary);">${item.spec_kor}</td>
+                <td style="padding: 0.8rem; text-align: right; font-family: var(--font-heading); font-weight: 600; ${rankingMetric === 'udps' ? 'color: var(--accent-purple); font-size: 1.05rem;' : ''}">${udpsText}</td>
+                <td style="padding: 0.8rem; text-align: right; font-family: var(--font-heading); font-weight: 600; ${rankingMetric === 'ndps' ? 'color: var(--accent-purple); font-size: 1.05rem;' : ''}">${ndpsText}</td>
+                <td style="padding: 0.8rem; text-align: right; font-family: var(--font-heading); font-weight: 600; ${rankingMetric === 'dps' ? 'color: var(--accent-purple); font-size: 1.05rem;' : ''}">${dpsText}</td>
+                <td style="padding: 0.8rem; text-align: right; font-family: var(--font-heading); font-weight: 600; ${rankingMetric === 'rdps' ? 'color: var(--accent-purple); font-size: 1.05rem;' : ''}">${rdpsText}</td>
+                <td style="padding: 0.8rem; text-align: right; font-family: var(--font-heading); font-weight: 600;" class="${multClass}">${multText}</td>
+            </tr>
+        `;
+    });
+    tableBody.innerHTML = html;
 }

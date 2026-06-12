@@ -21,6 +21,12 @@
             <p class="subtitle">Relative Performance Multiplier Dashboard</p>
         </header>
 
+        <!-- Navigation Tabs -->
+        <nav class="app-nav">
+            <button id="nav-btn-comparator" class="nav-tab active">⚔️ 성능 비교기 (Comparator)</button>
+            <button id="nav-btn-rankings" class="nav-tab">🏆 전체 순위표 (Rankings Table)</button>
+        </nav>
+
         <!-- ================= PAGE 1: SETUP VIEW ================= -->
         <div id="view-setup" class="page-view" style="position: relative;">
             <!-- Loading Overlay -->
@@ -208,6 +214,43 @@
             </div>
         </div>
 
+        <!-- ================= PAGE 3: RANKINGS VIEW ================= -->
+        <div id="view-rankings" class="page-view" style="display: none;">
+            <section class="glass-card rankings-section">
+                <div class="rankings-header-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+                    <h2 class="section-title" style="margin-bottom: 0;">🏆 직업 각인 전체 순위표 (Live Rankings)</h2>
+                    <div class="ranking-filter-group" style="display: flex; align-items: center; gap: 0.8rem;">
+                        <label for="ranking-metric-select" style="font-size: 0.95rem; color: var(--text-secondary); font-weight: 500;">정렬 기준 지표</label>
+                        <select id="ranking-metric-select" style="padding: 0.5rem 1rem; border-radius: 8px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: var(--text-main); font-weight: 600; font-family: var(--font-heading);">
+                            <option value="udps" selected>uDPS (Ultimate DPS)</option>
+                            <option value="ndps">nDPS (Normal DPS)</option>
+                            <option value="dps">DPS (Raw DPS)</option>
+                            <option value="rdps">rDPS (Synergy DPS)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="rankings-table-container" style="overflow-x: auto; margin-top: 1rem;">
+                    <table class="rankings-table">
+                        <thead>
+                            <tr>
+                                <th style="text-align: center; width: 80px;">순위</th>
+                                <th>직업 (Class)</th>
+                                <th>직업 각인 (Engraving)</th>
+                                <th style="text-align: right; width: 140px;">uDPS</th>
+                                <th style="text-align: right; width: 140px;">nDPS</th>
+                                <th style="text-align: right; width: 140px;">Raw DPS</th>
+                                <th style="text-align: right; width: 140px;">rDPS</th>
+                                <th style="text-align: right; width: 160px;">평균 대비</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rankings-table-body">
+                            <!-- Filled dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
 
         <!-- App Footer -->
         <footer class="app-footer-bar">
