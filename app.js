@@ -13,27 +13,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function loadDatabase() {
     const overlay = document.getElementById('db-loading-overlay');
-    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const loadingTextEl = overlay ? overlay.querySelector('.loading-text') : null;
     
-    if (isLocal) {
-        try {
-            const resp = await fetch('/api/live-stats');
-            if (resp.ok) {
-                lostArkDatabase = await resp.json();
-                console.log("Database loaded from API. Records:", lostArkDatabase.length);
-            } else {
-                throw new Error("HTTP " + resp.status);
-            }
-        } catch (e) {
-            console.error("Failed to load live database from API, using local fallback database.js if available:", e);
-            if (typeof fallbackDatabase !== 'undefined') {
-                lostArkDatabase = fallbackDatabase;
-            }
+    if (loadingTextEl) {
+        loadingTextEl.textContent = "로스트아크 실시간 전투력 지표를 API에서 불러오고 있습니다...";
+    }
+    
+    try {
+        lostArkDatabase = await scrapeLiveStats(loadingTextEl);
+        console.log("Database loaded in real-time from API. Records:", lostArkDatabase.length);
+    } catch (e) {
+        console.error("Failed to load live database from API, using local fallback database.js:", e);
+        if (loadingTextEl) {
+            loadingTextEl.textContent = "실시간 API 로드 실패. 로컬 백업 데이터를 적용하는 중...";
         }
-    } else {
-        console.log("Running on static production environment. Loading pre-rendered database.js.");
         if (typeof fallbackDatabase !== 'undefined') {
-            lostArkDatabase = fallbackDatabase;
+            lostArkDatabase = JSON.parse(JSON.stringify(fallbackDatabase));
+        } else {
+            lostArkDatabase = [];
         }
     }
     
@@ -576,4 +573,288 @@ function generateAnalysisSummary(selectedTargets) {
 // Helper: Format integers
 function formatNumber(num) {
     return Math.round(num).toLocaleString();
+}
+
+// ==========================================
+// REAL-TIME CLIENT-SIDE API SCRAPER LOGIC
+// ==========================================
+
+const CLASS_MAP = {
+    "Aeromancer": "기상술사", "Arcanist": "아르카나", "Artillerist": "블래스터",
+    "Artist": "도화가", "Bard": "바드", "Berserker": "버서커", "Breaker": "브레이커",
+    "Deadeye": "데빌헌터", "Deathblade": "블레이드", "Destroyer": "디스트로이어",
+    "Glaivier": "창술사", "Guardianknight": "가디언나이트", "Gunlancer": "워로드",
+    "Gunslinger": "건슬링어", "Machinist": "스카우터", "Paladin": "홀리나이트",
+    "Reaper": "리퍼", "Scrapper": "인파이터", "Shadowhunter": "데모닉",
+    "Sharpshooter": "호크아이", "Slayer": "슬레이어", "Sorceress": "소서리스",
+    "Souleater": "소울이터", "Soulfist": "기공사", "Striker": "스트라이커",
+    "Summoner": "서머너", "Valkyrie": "발키리", "Wardancer": "배틀마스터",
+    "Wildsoul": "와일드소울"
+};
+
+const SPEC_MAP = {
+    "Drizzle": "이슬비", "Wind Fury": "질풍노도", "Grace of the Empress": "황후의 은총",
+    "Order of the Emperor": "황제의 칙령", "Barrage Enhancement": "포격 강화",
+    "Firepower Enhancement": "화력 강화", "Recurrence": "회귀", "True Courage": "진실된 용기",
+    "Berserker Technique": "광전사의 비기", "Mayhem": "광기", "Asura's Path": "수라결",
+    "Brawl King Storm": "권왕태세", "Enhanced Weapon": "강화 무기", "Pistoleer": "핸드거너",
+    "Remaining Energy": "잔재된 기운", "Surge": "버스트", "Gravity Training": "중력 수련",
+    "Rage Hammer": "분노의 망치", "Control": "절제", "Pinnacle": "절정",
+    "Dreadful Roar": "끔찍한 포효", "Hellfire Successor": "업화의 계승자", "Combat Readiness": "전투 태세",
+    "Lone Knight": "고독한 기사", "Peacemaker": "피스메이커", "Time to Hunt": "사냥의 시간",
+    "Arthetinean Skill": "아르데타인의 기술", "Evolutionary Legacy": "진화의 유산",
+    "Judgment": "심판자", "Hunger": "갈증", "Lunar Voice": "달의 소리", "Shock Training": "충격 단련",
+    "Ultimate Skill: Taijutsu": "극의: 체술", "Demonic Impulse": "멈출 수 없는 충동",
+    "Perfect Suppression": "완벽한 억제", "Death Strike": "죽음의 습격", "Loyal Companion": "두 번째 동료",
+    "Predator": "포식자", "Punisher": "처단자", "Igniter": "점화", "Reflux": "환류",
+    "Full Moon Harvester": "만월의 집행자", "Night's Edge": "그믐의 경계", "Energy Overflow": "세맥타통",
+    "Robust Spirit": "역천지체", "Deathblow": "일격필살", "Esoteric Flurry": "오의난무",
+    "Communication Overflow": "넘치는 교감", "Master Summoner": "상급 소환사", "Shining Knight": "빛의 기사",
+    "Esoteric Skill Enhancement": "오의 강화", "First Intention": "초심", "Ferality": "야성",
+    "Phantom Beast Awakening": "환수 각성"
+};
+
+const SUPPORT_SPECS = new Set(["Blessed Aura", "Desperate Salvation", "Full Bloom", "Liberator", "Princess"]);
+
+const CORS_PROXIES = [
+    url => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
+    url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
+];
+
+async function fetchWithProxy(url) {
+    let lastError = null;
+    for (const getProxyUrl of CORS_PROXIES) {
+        try {
+            const pUrl = getProxyUrl(url);
+            const resp = await fetch(pUrl);
+            if (resp.ok) {
+                return await resp.text();
+            }
+            lastError = new Error(`HTTP ${resp.status} on ${pUrl}`);
+        } catch (e) {
+            lastError = e;
+        }
+    }
+    throw lastError || new Error("All proxies failed");
+}
+
+async function fetchJsonWithProxy(url) {
+    let lastError = null;
+    for (const getProxyUrl of CORS_PROXIES) {
+        try {
+            const pUrl = getProxyUrl(url);
+            const resp = await fetch(pUrl);
+            if (resp.ok) {
+                return await resp.json();
+            }
+            lastError = new Error(`HTTP ${resp.status} on ${pUrl}`);
+        } catch (e) {
+            lastError = e;
+        }
+    }
+    throw lastError || new Error("All proxies failed");
+}
+
+function deserialize(dataStr) {
+    const arr = typeof dataStr === 'string' ? JSON.parse(dataStr) : dataStr;
+    const memo = {};
+    
+    function resolve(idx) {
+        if (idx in memo) {
+            return memo[idx];
+        }
+        const val = arr[idx];
+        if (val === null || val === undefined) {
+            memo[idx] = val;
+            return val;
+        }
+        if (Array.isArray(val)) {
+            const resolvedList = [];
+            memo[idx] = resolvedList;
+            for (const item of val) {
+                if (typeof item === 'number' && Number.isInteger(item)) {
+                    resolvedList.push(resolve(item));
+                } else {
+                    resolvedList.push(item);
+                }
+            }
+            return resolvedList;
+        } else if (typeof val === 'object') {
+            const resolvedDict = {};
+            memo[idx] = resolvedDict;
+            for (const [k, v] of Object.entries(val)) {
+                if (typeof v === 'number' && Number.isInteger(v)) {
+                    resolvedDict[k] = resolve(v);
+                } else {
+                    resolvedDict[k] = v;
+                }
+            }
+            return resolvedDict;
+        } else {
+            memo[idx] = val;
+            return val;
+        }
+    }
+    return resolve(0);
+}
+
+function getRelativePayload(boss, difficulty, dpsType, patch) {
+    const arr = [
+        ["__skrao", 1],
+        {
+            "boss": 2,
+            "difficulty": 3,
+            "dpsType": 4,
+            "patch": 5
+        },
+        boss,
+        difficulty,
+        dpsType,
+        patch
+    ];
+    const jsonStr = JSON.stringify(arr);
+    const b64 = btoa(unescape(encodeURIComponent(jsonStr)));
+    return b64.replace(/=+$/, "");
+}
+
+async function scrapeLiveStats(loadingTextEl) {
+    const updateStatus = (text) => {
+        if (loadingTextEl) {
+            loadingTextEl.textContent = text;
+        }
+        console.log(text);
+    };
+
+    updateStatus("로스트아크 바이블 페이지 분석 중...");
+    const html = await fetchWithProxy("https://lostark.bible/stats/combat-power");
+    
+    updateStatus("SvelteKit 모듈 정보 추출 중...");
+    const appJsMatch = html.match(/["']([^"']*(?:_app\/immutable\/entry\/app\.[a-zA-Z0-9_.-]+\.js))["']/);
+    if (!appJsMatch) throw new Error("Could not find app.js script path in HTML");
+    const appJsRelative = appJsMatch[1];
+    const appJsClean = appJsRelative.startsWith("../") ? appJsRelative.substring(3) : appJsRelative.startsWith("/") ? appJsRelative.substring(1) : appJsRelative;
+    const appJsUrl = `https://lostark.bible/${appJsClean}`;
+    
+    const appJsText = await fetchWithProxy(appJsUrl);
+    
+    // Extract all node files
+    const importRegex = /\bimport\(\s*[`'"]\.\.\/([^`'"]+\.js)[`'"]\s*\)/g;
+    const nodeFiles = [];
+    let match;
+    while ((match = importRegex.exec(appJsText)) !== null) {
+        nodeFiles.push(match[1]);
+    }
+    
+    // Find route nodes
+    const cpRouteMatch = appJsText.match(/"\/stats\/combat-power"\s*:\s*\[\s*-?(\d+)/);
+    const genericRouteMatch = appJsText.match(/"\/stats\/generic"\s*:\s*\[\s*-?(\d+)/);
+    
+    const candidateNodes = [];
+    if (cpRouteMatch) {
+        const idx = parseInt(cpRouteMatch[1]);
+        if (nodeFiles[idx]) candidateNodes.push({ index: idx, file: nodeFiles[idx] });
+    }
+    if (genericRouteMatch) {
+        const idx = parseInt(genericRouteMatch[1]);
+        if (nodeFiles[idx]) candidateNodes.push({ index: idx, file: nodeFiles[idx] });
+    }
+    
+    if (candidateNodes.length === 0) {
+        for (let i = 50; i < Math.min(nodeFiles.length, 65); i++) {
+            candidateNodes.push({ index: i, file: nodeFiles[i] });
+        }
+    }
+    
+    updateStatus("API 통신 토큰 수집 중...");
+    let cpHash = null;
+    for (const node of candidateNodes) {
+        const nodeUrl = `https://lostark.bible/_app/immutable/${node.file}`;
+        try {
+            const nodeText = await fetchWithProxy(nodeUrl);
+            const hashMatch = nodeText.match(/\b([a-zA-Z0-9]{7})\/combatPowerDPSSearch\b/);
+            if (hashMatch) {
+                cpHash = hashMatch[1];
+                break;
+            }
+        } catch (e) {
+            console.warn(`Error scanning node ${node.index}:`, e);
+        }
+    }
+    
+    if (!cpHash) throw new Error("Could not find combatPowerDPSSearch build hash");
+    
+    updateStatus("실시간 직종 성능 데이터 병렬 요청 중...");
+    const dpsTypes = ["ndps", "dps", "rdps", "udps"];
+    const liveResults = {};
+    
+    const fetchPromises = dpsTypes.map(async (dpsType) => {
+        const payload = getRelativePayload("Corvus Tul Rak", "Nightmare", dpsType, "jun26");
+        const url = `https://lostark.bible/_app/remote/${cpHash}/combatPowerDPSSearch?payload=${payload}`;
+        try {
+            const json = await fetchJsonWithProxy(url);
+            if (json && json.result) {
+                liveResults[dpsType] = deserialize(json.result);
+            }
+        } catch (e) {
+            console.error(`Error fetching ${dpsType}:`, e);
+        }
+    });
+    
+    await Promise.all(fetchPromises);
+    
+    const baseType = liveResults["ndps"] ? "ndps" : Object.keys(liveResults)[0];
+    if (!baseType || !liveResults[baseType]) {
+        throw new Error("No live stats records fetched successfully");
+    }
+    
+    updateStatus("실시간 지표 매핑 및 분석 데이터 병합 중...");
+    const specsDb = {};
+    
+    for (const entry of liveResults[baseType]) {
+        const spec = entry.spec;
+        if (SUPPORT_SPECS.has(spec)) continue;
+        const className = entry.class;
+        const key = `${className}-${spec}`;
+        
+        specsDb[key] = {
+            type: "spec",
+            class_eng: className,
+            class_kor: CLASS_MAP[className] || className,
+            spec_eng: spec,
+            spec_kor: SPEC_MAP[spec] || spec,
+            values: {
+                ndps: 0,
+                dps: 0,
+                rdps: 0,
+                udps: 0
+            }
+        };
+    }
+    
+    for (const dpsType of dpsTypes) {
+        if (!liveResults[dpsType]) continue;
+        for (const entry of liveResults[dpsType]) {
+            const spec = entry.spec;
+            const className = entry.class;
+            const key = `${className}-${spec}`;
+            
+            if (specsDb[key]) {
+                specsDb[key].values[dpsType] = Math.round(entry.avg || 0);
+            }
+        }
+    }
+    
+    // Fallback missing udps (approximate to 0.545 * dps)
+    for (const key of Object.keys(specsDb)) {
+        const specData = specsDb[key];
+        if (specData.values.udps === 0 && specData.values.dps > 0) {
+            specData.values.udps = Math.round(specData.values.dps * 0.545);
+        }
+    }
+    
+    const databaseList = Object.values(specsDb);
+    if (databaseList.length === 0) {
+        throw new Error("Live database is empty");
+    }
+    return databaseList;
 }
