@@ -38,7 +38,7 @@
             <h2 class="section-title" style="margin-bottom: 1.2rem; font-size: 1.25rem; display: flex; align-items: center; gap: 0.5rem;">
                 🌐 실시간 API 데이터 필터 설정 (Raid & Difficulty Settings)
             </h2>
-            <div class="query-settings-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.2rem;">
+            <div class="query-settings-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1.2rem;">
                 <div class="slot-filter-field">
                     <label for="global-boss-select">레이드 / 보스 (Boss)</label>
                     <select id="global-boss-select">
@@ -56,6 +56,15 @@
                     <select id="global-patch-select">
                         <option value="jun26" selected>최신 패치 (jun26)</option>
                         <option value="mar26">이전 패치 (mar26)</option>
+                    </select>
+                </div>
+                <div class="slot-filter-field">
+                    <label for="global-metric-select">비교 지표 (Metric)</label>
+                    <select id="global-metric-select">
+                        <option value="udps" selected>uDPS (Ultimate DPS)</option>
+                        <option value="ndps">nDPS (Normal DPS)</option>
+                        <option value="dps">DPS (Raw DPS)</option>
+                        <option value="rdps">rDPS (Synergy DPS)</option>
                     </select>
                 </div>
             </div>
@@ -192,15 +201,6 @@
                 <aside class="summary-sidebar">
                     <div class="glass-card matrix-card">
                         <h3 class="section-title">📊 1:1 상대 효율 비교 (Cross Multipliers)</h3>
-                        <div class="matrix-select-group">
-                            <label for="matrix-metric-select">기준 지표</label>
-                            <select id="matrix-metric-select">
-                                <option value="udps" selected>uDPS (Ultimate DPS)</option>
-                                <option value="ndps">nDPS (Normal DPS)</option>
-                                <option value="dps">DPS (Raw DPS)</option>
-                                <option value="rdps">rDPS (Synergy DPS)</option>
-                            </select>
-                        </div>
                         <div class="matrix-container" id="matrix-container">
                             <!-- Cross comparison grid renders here -->
                         </div>
@@ -221,15 +221,6 @@
             <section class="glass-card rankings-section">
                 <div class="rankings-header-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
                     <h2 class="section-title" style="margin-bottom: 0;">🏆 직업 각인 전체 순위표 (Live Rankings)</h2>
-                    <div class="ranking-filter-group" style="display: flex; align-items: center; gap: 0.8rem;">
-                        <label for="ranking-metric-select" style="font-size: 0.95rem; color: var(--text-secondary); font-weight: 500;">정렬 기준 지표</label>
-                        <select id="ranking-metric-select" style="padding: 0.5rem 1rem; border-radius: 8px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: var(--text-main); font-weight: 600; font-family: var(--font-heading);">
-                            <option value="udps" selected>uDPS (Ultimate DPS)</option>
-                            <option value="ndps">nDPS (Normal DPS)</option>
-                            <option value="dps">DPS (Raw DPS)</option>
-                            <option value="rdps">rDPS (Synergy DPS)</option>
-                        </select>
-                    </div>
                 </div>
                 
                 <div class="rankings-table-container" style="overflow-x: auto; margin-top: 1rem;">

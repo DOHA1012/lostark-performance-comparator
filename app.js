@@ -10,6 +10,7 @@ let globalAverages = {};
 let currentBoss = "Corvus Tul Rak";
 let currentDifficulty = "Nightmare";
 let currentPatch = "jun26";
+let currentMetric = "udps";
 
 // Initialize App
 document.addEventListener('DOMContentLoaded', () => {
@@ -285,12 +286,6 @@ function setupEventListeners() {
     // Add slot button
     document.getElementById('btn-add-slot').addEventListener('click', addSlot);
     
-    // Cross matrix metric change
-    document.getElementById('matrix-metric-select').addEventListener('change', () => {
-        const activeTargets = getActiveTargets();
-        renderCrossMatrix(activeTargets);
-    });
-    
     // View Results (Setup page -> Results page)
     document.getElementById('btn-view-results').addEventListener('click', () => {
         const activeTargets = getActiveTargets();
@@ -321,8 +316,9 @@ function setupEventListeners() {
     const bossSelect = document.getElementById('global-boss-select');
     const diffSelect = document.getElementById('global-difficulty-select');
     const patchSelect = document.getElementById('global-patch-select');
+    const metricSelect = document.getElementById('global-metric-select');
     
-    if (bossSelect && diffSelect && patchSelect) {
+    if (bossSelect && diffSelect && patchSelect && metricSelect) {
         // 1. Populate Boss Options
         bossSelect.innerHTML = "";
         RAID_METADATA.forEach(raid => {
@@ -346,7 +342,10 @@ function setupEventListeners() {
         // 3. Set initial patch select value
         patchSelect.value = currentPatch;
 
-        // 4. Add Change Listeners
+        // 4. Set initial metric select value
+        metricSelect.value = currentMetric;
+
+        // 5. Add Change Listeners
         bossSelect.addEventListener('change', () => {
             currentBoss = bossSelect.value;
             updateDifficultyOptions();
@@ -363,15 +362,29 @@ function setupEventListeners() {
             currentPatch = patchSelect.value;
             reloadDatabase();
         });
+
+        metricSelect.addEventListener('change', () => {
+            currentMetric = metricSelect.value;
+            
+            // Recalculate/update views as needed
+            const activeTargets = getActiveTargets();
+            if (activeTargets.length >= 2) {
+                calculateAndRender();
+            }
+            
+            const viewRankings = document.getElementById('view-rankings');
+            if (viewRankings && viewRankings.style.display === 'block') {
+                renderRankingsTable();
+            }
+        });
     }
 
-    // Initialize Tab Navigation and Rankings Sorting Listeners
+    // Initialize Tab Navigation
     const btnComp = document.getElementById('nav-btn-comparator');
     const btnRank = document.getElementById('nav-btn-rankings');
     const viewSetup = document.getElementById('view-setup');
     const viewResults = document.getElementById('view-results');
     const viewRankings = document.getElementById('view-rankings');
-    const rankMetricSelect = document.getElementById('ranking-metric-select');
 
     if (btnComp && btnRank && viewSetup && viewResults && viewRankings) {
         btnComp.addEventListener('click', () => {
@@ -391,12 +404,6 @@ function setupEventListeners() {
             viewSetup.style.display = 'none';
             viewResults.style.display = 'none';
             viewRankings.style.display = 'block';
-            renderRankingsTable();
-        });
-    }
-
-    if (rankMetricSelect) {
-        rankMetricSelect.addEventListener('change', () => {
             renderRankingsTable();
         });
     }
@@ -428,7 +435,15 @@ function calculateAndRender() {
     
     const metrics = ['ndps', 'dps', 'rdps', 'udps'];
     metrics.forEach(metricId => {
-        renderMetricCard(metricId, activeTargets);
+        const card = document.getElementById(`card-${metricId}`);
+        if (card) {
+            if (metricId === currentMetric) {
+                card.style.display = 'block';
+                renderMetricCard(metricId, activeTargets);
+            } else {
+                card.style.display = 'none';
+            }
+        }
     });
     
     renderCrossMatrix(activeTargets);
@@ -532,7 +547,7 @@ function renderCrossMatrix(selectedTargets) {
     const matrixContainer = document.getElementById('matrix-container');
     if (!matrixContainer) return;
     
-    const metricId = document.getElementById('matrix-metric-select').value;
+    const metricId = currentMetric;
     
     let html = `
         <table class="matrix-table-cross">
@@ -1146,9 +1161,8 @@ async function reloadDatabase() {
 
 function renderRankingsTable() {
     const tableBody = document.getElementById('rankings-table-body');
-    const rankMetricSelect = document.getElementById('ranking-metric-select');
-    if (!tableBody || !rankMetricSelect) return;
-    const rankingMetric = rankMetricSelect.value;
+    if (!tableBody) return;
+    const rankingMetric = currentMetric;
 
     // Filter out virtual global averages and only sort base engravings (type: 'spec')
     const specs = lostArkDatabase.filter(item => item.type === 'spec');
