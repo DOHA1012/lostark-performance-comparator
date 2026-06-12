@@ -6,6 +6,11 @@ let slots = [];
 let nextSlotId = 1;
 let globalAverages = {};
 
+// Global Query State
+let currentBoss = "Corvus Tul Rak";
+let currentDifficulty = "Nightmare";
+let currentPatch = "jun26";
+
 // Initialize App
 document.addEventListener('DOMContentLoaded', () => {
     loadDatabase();
@@ -311,6 +316,54 @@ function setupEventListeners() {
         document.getElementById('view-setup').style.display = 'block';
         window.scrollTo(0, 0);
     });
+
+    // Initialize Global Settings Selects
+    const bossSelect = document.getElementById('global-boss-select');
+    const diffSelect = document.getElementById('global-difficulty-select');
+    const patchSelect = document.getElementById('global-patch-select');
+    
+    if (bossSelect && diffSelect && patchSelect) {
+        // 1. Populate Boss Options
+        bossSelect.innerHTML = "";
+        RAID_METADATA.forEach(raid => {
+            const group = document.createElement('optgroup');
+            group.label = raid.name;
+            raid.bosses.forEach(boss => {
+                const opt = document.createElement('option');
+                opt.value = boss.apiName;
+                opt.textContent = boss.displayName;
+                if (boss.apiName === currentBoss) {
+                    opt.selected = true;
+                }
+                group.appendChild(opt);
+            });
+            bossSelect.appendChild(group);
+        });
+
+        // 2. Populate Difficulty Options based on initial Boss
+        updateDifficultyOptions();
+
+        // 3. Set initial patch select value
+        patchSelect.value = currentPatch;
+
+        // 4. Add Change Listeners
+        bossSelect.addEventListener('change', () => {
+            currentBoss = bossSelect.value;
+            updateDifficultyOptions();
+            currentDifficulty = diffSelect.value;
+            reloadDatabase();
+        });
+
+        diffSelect.addEventListener('change', () => {
+            currentDifficulty = diffSelect.value;
+            reloadDatabase();
+        });
+
+        patchSelect.addEventListener('change', () => {
+            currentPatch = patchSelect.value;
+            reloadDatabase();
+        });
+    }
 }
 
 // Get active valid targets
@@ -788,7 +841,7 @@ async function scrapeLiveStats(loadingTextEl) {
     const liveResults = {};
     
     const fetchPromises = dpsTypes.map(async (dpsType) => {
-        const payload = getRelativePayload("Corvus Tul Rak", "Nightmare", dpsType, "jun26");
+        const payload = getRelativePayload(currentBoss, currentDifficulty, dpsType, currentPatch);
         const url = `https://lostark.bible/_app/remote/${cpHash}/combatPowerDPSSearch?payload=${payload}`;
         try {
             const json = await fetchJsonWithProxy(url);
@@ -857,4 +910,194 @@ async function scrapeLiveStats(loadingTextEl) {
         throw new Error("Live database is empty");
     }
     return databaseList;
+}
+
+// ==========================================
+// RAID METADATA & RELOAD DATABASE LOGIC
+// ==========================================
+
+const RAID_METADATA = [
+    {
+        name: "Serca (세르카)",
+        bosses: [
+            { apiName: "Corvus Tul Rak", displayName: "세르카 2관문 (코르부스 툴 락)", difficulties: ["Nightmare", "Hard", "Normal"] },
+            { apiName: "Witch of Agony, Serca", displayName: "세르카 1관문 (고통의 마녀 세르카)", difficulties: ["Hard", "Normal"] }
+        ]
+    },
+    {
+        name: "Kazeros (카제로스)",
+        bosses: [
+            { apiName: "Death Incarnate Kazeros", displayName: "카제로스 2관문 (죽음의 화신 카제로스)", difficulties: ["Hard", "Normal"] },
+            { apiName: "Abyss Lord Kazeros", displayName: "카제로스 1관문 (심연의 군주 카제로스)", difficulties: ["The First", "Hard", "Normal"] }
+        ]
+    },
+    {
+        name: "Armoche (아르모헤)",
+        bosses: [
+            { apiName: "Armoche, Sentinel of the Abyss", displayName: "아르모헤 2관문 (심연의 파수꾼 아르모헤)", difficulties: ["Hard", "Normal"] },
+            { apiName: "Brelshaza, Ember in the Ashes", displayName: "아르모헤 1관문 (잿더미 속의 아브렐슈드)", difficulties: ["Hard", "Normal"] }
+        ]
+    },
+    {
+        name: "Mordum (모르둠)",
+        bosses: [
+            { apiName: "Mordum, the Abyssal Punisher", displayName: "모르둠 3관문 (심연의 형벌자 모르둠)", difficulties: ["Hard", "Normal"] },
+            { apiName: "Blossoming Fear, Naitreya", displayName: "모르둠 2관문 (피어나는 공포 나이트레야)", difficulties: ["Hard", "Normal"] },
+            { apiName: "Infernas", displayName: "모르둠 1관문 (인페르나스)", difficulties: ["Hard", "Normal"] }
+        ]
+    },
+    {
+        name: "Brelshaza (2막 아브렐슈드)",
+        bosses: [
+            { apiName: "Phantom Manifester Brelshaza", displayName: "아브렐슈드 2관문 (환영의 화신 아브렐슈드)", difficulties: ["Hard", "Normal"] },
+            { apiName: "Narok the Butcher", displayName: "아브렐슈드 1관문 (도살자 나록)", difficulties: ["Hard", "Normal"] }
+        ]
+    },
+    {
+        name: "Aegir (1막 에기르)",
+        bosses: [
+            { apiName: "Aegir, the Oppressor", displayName: "에기르 2관문 (압도자 에기르)", difficulties: ["Hard", "Normal"] },
+            { apiName: "Akkan, Lord of Death", displayName: "에기르 1관문 (죽음의 군주 일리아칸)", difficulties: ["Hard", "Normal"] }
+        ]
+    },
+    {
+        name: "Behemoth (베히모스)",
+        bosses: [
+            { apiName: "Behemoth, Cruel Storm Slayer", displayName: "베히모스 2관문 (잔혹한 폭풍 학살자 베히모스)", difficulties: ["Normal"] },
+            { apiName: "Behemoth, the Storm Commander", displayName: "베히모스 1관문 (폭풍 사령관 베히모스)", difficulties: ["Normal"] }
+        ]
+    },
+    {
+        name: "Horizon Cathedral (지평선 성당)",
+        bosses: [
+            { apiName: "Arcenos, Vanguard of Fanaticism", displayName: "지평선 성당 G2 (광신의 선봉장)", difficulties: ["Level 3", "Level 2", "Level 1"] },
+            { apiName: "Archbishop Arcenos", displayName: "지평선 성당 G1 (대주교 아르세노스)", difficulties: ["Level 3", "Level 2", "Level 1"] }
+        ]
+    },
+    {
+        name: "Thaemine (카멘)",
+        bosses: [
+            { apiName: "Thaemine, Conqueror of Stars", displayName: "카멘 G4 (별을 정복한 카멘)", difficulties: ["Extreme Hard", "Extreme Normal"] }
+        ]
+    },
+    {
+        name: "Tarkal (타르칼)",
+        bosses: [
+            { apiName: "Flame of Darkness, Tarkal", displayName: "타르칼 G1 (어둠의 불꽃)", difficulties: ["Hard", "Normal"] }
+        ]
+    }
+];
+
+function updateDifficultyOptions() {
+    const bossSelect = document.getElementById('global-boss-select');
+    const diffSelect = document.getElementById('global-difficulty-select');
+    if (!bossSelect || !diffSelect) return;
+    
+    const selectedBossName = bossSelect.value;
+    let foundBoss = null;
+    for (const raid of RAID_METADATA) {
+        foundBoss = raid.bosses.find(b => b.apiName === selectedBossName);
+        if (foundBoss) break;
+    }
+    
+    if (!foundBoss) return;
+    
+    diffSelect.innerHTML = "";
+    foundBoss.difficulties.forEach(diff => {
+        const opt = document.createElement('option');
+        opt.value = diff;
+        opt.textContent = diff;
+        if (diff === currentDifficulty) {
+            opt.selected = true;
+        }
+        diffSelect.appendChild(opt);
+    });
+    
+    if (!foundBoss.difficulties.includes(currentDifficulty)) {
+        currentDifficulty = foundBoss.difficulties[0];
+        diffSelect.value = currentDifficulty;
+    }
+}
+
+async function reloadDatabase() {
+    const overlay = document.getElementById('db-loading-overlay');
+    if (overlay) {
+        overlay.style.display = 'flex';
+        overlay.style.opacity = '1';
+    }
+    const loadingTextEl = overlay ? overlay.querySelector('.loading-text') : null;
+    if (loadingTextEl) {
+        loadingTextEl.textContent = "레이드 필터 변경에 따라 실시간 데이터를 다시 불러오고 있습니다...";
+    }
+    
+    try {
+        lostArkDatabase = await scrapeLiveStats(loadingTextEl);
+        console.log("Database reloaded in real-time from API. Records:", lostArkDatabase.length);
+    } catch (e) {
+        console.error("Failed to reload live database from API, using local fallback database.js:", e);
+        if (loadingTextEl) {
+            loadingTextEl.textContent = "실시간 API 로드 실패. 로컬 백업 데이터를 적용하는 중...";
+        }
+        if (typeof fallbackDatabase !== 'undefined') {
+            lostArkDatabase = JSON.parse(JSON.stringify(fallbackDatabase));
+        } else {
+            lostArkDatabase = [];
+        }
+    }
+    
+    // Hide overlay
+    if (overlay) {
+        overlay.style.opacity = '0';
+        setTimeout(() => {
+            overlay.style.display = 'none';
+        }, 300);
+    }
+    
+    // 1. Calculate overall averages of class specs
+    calculateGlobalAverages();
+    
+    // Remove old virtual global avg item and append new one
+    lostArkDatabase = lostArkDatabase.filter(item => item.type !== 'global_avg');
+    lostArkDatabase.push({
+        type: 'global_avg',
+        class_eng: 'All',
+        class_kor: '전체',
+        spec_eng: 'Overall Average',
+        spec_kor: '전체 평균',
+        values: globalAverages
+    });
+    
+    // 2. Update active targets and drop-downs for all slots
+    slots.forEach(slot => {
+        const classSelect = document.getElementById(`slot-class-${slot.id}`);
+        const specSelect = document.getElementById(`slot-spec-${slot.id}`);
+        
+        if (classSelect && specSelect) {
+            const prevClass = slot.classVal;
+            const prevSpec = slot.specVal;
+            
+            const classes = [...new Set(lostArkDatabase.filter(item => item.class_kor !== '전체').map(item => item.class_kor))].sort();
+            classSelect.innerHTML = '<option value="all">전체 (All)</option>';
+            classes.forEach(cls => {
+                const opt = document.createElement('option');
+                opt.value = cls;
+                opt.textContent = cls;
+                if (cls === prevClass) opt.selected = true;
+                classSelect.appendChild(opt);
+            });
+            
+            if (prevClass !== 'all') {
+                const specs = [...new Set(lostArkDatabase.filter(item => item.type === 'spec' && item.class_kor === prevClass).map(item => item.spec_kor))].sort();
+                specSelect.innerHTML = '';
+                specs.forEach(sp => {
+                    const opt = document.createElement('option');
+                    opt.value = sp;
+                    opt.textContent = sp;
+                    if (sp === prevSpec) opt.selected = true;
+                    specSelect.appendChild(opt);
+                });
+            }
+        }
+        updateSlotTarget(slot);
+    });
 }
