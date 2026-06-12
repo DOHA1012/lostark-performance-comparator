@@ -5,6 +5,7 @@ let lostArkDatabase = [];
 let slots = [];
 let nextSlotId = 1;
 let globalAverages = {};
+let cachedCpHash = null;
 
 // Global Query State
 let currentBoss = "Corvus Tul Rak";
@@ -17,6 +18,21 @@ document.addEventListener('DOMContentLoaded', () => {
     loadDatabase();
 });
 
+function updateApiStatus(success, errorDetail = "") {
+    const successBanner = document.getElementById('api-success-banner');
+    const statusBanner = document.getElementById('api-status-banner');
+    const errorDetailEl = document.getElementById('api-error-detail');
+    
+    if (success) {
+        if (successBanner) successBanner.style.display = 'flex';
+        if (statusBanner) statusBanner.style.display = 'none';
+    } else {
+        if (successBanner) successBanner.style.display = 'none';
+        if (statusBanner) statusBanner.style.display = 'flex';
+        if (errorDetailEl) errorDetailEl.textContent = errorDetail;
+    }
+}
+
 async function loadDatabase() {
     const overlay = document.getElementById('db-loading-overlay');
     const loadingTextEl = overlay ? overlay.querySelector('.loading-text') : null;
@@ -28,11 +44,10 @@ async function loadDatabase() {
     try {
         lostArkDatabase = await scrapeLiveStats(loadingTextEl);
         console.log("Database loaded in real-time from API. Records:", lostArkDatabase.length);
+        updateApiStatus(true);
     } catch (e) {
         console.error("Failed to load live database from API, using local fallback database.js:", e);
-        if (loadingTextEl) {
-            loadingTextEl.textContent = "실시간 API 로드 실패. 로컬 백업 데이터를 적용하는 중...";
-        }
+        updateApiStatus(false, e.message);
         if (typeof fallbackDatabase !== 'undefined') {
             lostArkDatabase = JSON.parse(JSON.stringify(fallbackDatabase));
         } else {
@@ -829,63 +844,66 @@ async function scrapeLiveStats(loadingTextEl) {
         console.log(text);
     };
 
-    updateStatus("로스트아크 바이블 페이지 분석 중...");
-    const html = await fetchWithProxy("https://lostark.bible/stats/combat-power");
-    
-    updateStatus("SvelteKit 모듈 정보 추출 중...");
-    const appJsMatch = html.match(/["']([^"']*(?:_app\/immutable\/entry\/app\.[a-zA-Z0-9_.-]+\.js))["']/);
-    if (!appJsMatch) throw new Error("Could not find app.js script path in HTML");
-    const appJsRelative = appJsMatch[1];
-    const appJsClean = appJsRelative.startsWith("../") ? appJsRelative.substring(3) : appJsRelative.startsWith("/") ? appJsRelative.substring(1) : appJsRelative;
-    const appJsUrl = `https://lostark.bible/${appJsClean}`;
-    
-    const appJsText = await fetchWithProxy(appJsUrl);
-    
-    // Extract all node files
-    const importRegex = /\bimport\(\s*[`'"]\.\.\/([^`'"]+\.js)[`'"]\s*\)/g;
-    const nodeFiles = [];
-    let match;
-    while ((match = importRegex.exec(appJsText)) !== null) {
-        nodeFiles.push(match[1]);
-    }
-    
-    // Find route nodes
-    const cpRouteMatch = appJsText.match(/"\/stats\/combat-power"\s*:\s*\[\s*-?(\d+)/);
-    const genericRouteMatch = appJsText.match(/"\/stats\/generic"\s*:\s*\[\s*-?(\d+)/);
-    
-    const candidateNodes = [];
-    if (cpRouteMatch) {
-        const idx = parseInt(cpRouteMatch[1]);
-        if (nodeFiles[idx]) candidateNodes.push({ index: idx, file: nodeFiles[idx] });
-    }
-    if (genericRouteMatch) {
-        const idx = parseInt(genericRouteMatch[1]);
-        if (nodeFiles[idx]) candidateNodes.push({ index: idx, file: nodeFiles[idx] });
-    }
-    
-    if (candidateNodes.length === 0) {
-        for (let i = 50; i < Math.min(nodeFiles.length, 65); i++) {
-            candidateNodes.push({ index: i, file: nodeFiles[i] });
+    let cpHash = cachedCpHash;
+    if (!cpHash) {
+        updateStatus("로스트아크 바이블 페이지 분석 중...");
+        const html = await fetchWithProxy("https://lostark.bible/stats/combat-power");
+        
+        updateStatus("SvelteKit 모듈 정보 추출 중...");
+        const appJsMatch = html.match(/["']([^"']*(?:_app\/immutable\/entry\/app\.[a-zA-Z0-9_.-]+\.js))["']/);
+        if (!appJsMatch) throw new Error("Could not find app.js script path in HTML");
+        const appJsRelative = appJsMatch[1];
+        const appJsClean = appJsRelative.startsWith("../") ? appJsRelative.substring(3) : appJsRelative.startsWith("/") ? appJsRelative.substring(1) : appJsRelative;
+        const appJsUrl = `https://lostark.bible/${appJsClean}`;
+        
+        const appJsText = await fetchWithProxy(appJsUrl);
+        
+        // Extract all node files
+        const importRegex = /\bimport\(\s*[`'"]\.\.\/([^`'"]+\.js)[`'"]\s*\)/g;
+        const nodeFiles = [];
+        let match;
+        while ((match = importRegex.exec(appJsText)) !== null) {
+            nodeFiles.push(match[1]);
         }
-    }
-    
-    updateStatus("API 통신 토큰 수집 중...");
-    let cpHash = null;
-    for (const node of candidateNodes) {
-        const nodeUrl = `https://lostark.bible/_app/immutable/${node.file}`;
-        try {
-            const nodeText = await fetchWithProxy(nodeUrl);
-            const hashMatch = nodeText.match(/\b([a-zA-Z0-9]{7})\/combatPowerDPSSearch\b/);
-            if (hashMatch) {
-                cpHash = hashMatch[1];
-                break;
+        
+        // Find route nodes
+        const cpRouteMatch = appJsText.match(/"\/stats\/combat-power"\s*:\s*\[\s*-?(\d+)/);
+        const genericRouteMatch = appJsText.match(/"\/stats\/generic"\s*:\s*\[\s*-?(\d+)/);
+        
+        const candidateNodes = [];
+        if (cpRouteMatch) {
+            const idx = parseInt(cpRouteMatch[1]);
+            if (nodeFiles[idx]) candidateNodes.push({ index: idx, file: nodeFiles[idx] });
+        }
+        if (genericRouteMatch) {
+            const idx = parseInt(genericRouteMatch[1]);
+            if (nodeFiles[idx]) candidateNodes.push({ index: idx, file: nodeFiles[idx] });
+        }
+        
+        if (candidateNodes.length === 0) {
+            for (let i = 50; i < Math.min(nodeFiles.length, 65); i++) {
+                candidateNodes.push({ index: i, file: nodeFiles[i] });
             }
-        } catch (e) {
-            console.warn(`Error scanning node ${node.index}:`, e);
         }
+        
+        updateStatus("API 통신 토큰 수집 중...");
+        for (const node of candidateNodes) {
+            const nodeUrl = `https://lostark.bible/_app/immutable/${node.file}`;
+            try {
+                const nodeText = await fetchWithProxy(nodeUrl);
+                const hashMatch = nodeText.match(/\b([a-zA-Z0-9]{7})\/combatPowerDPSSearch\b/);
+                if (hashMatch) {
+                    cpHash = hashMatch[1];
+                    break;
+                }
+            } catch (e) {
+                console.warn(`Error scanning node ${node.index}:`, e);
+            }
+        }
+        
+        if (!cpHash) throw new Error("Could not find combatPowerDPSSearch build hash");
+        cachedCpHash = cpHash;
     }
-    
-    if (!cpHash) throw new Error("Could not find combatPowerDPSSearch build hash");
     
     updateStatus("실시간 직종 성능 데이터 병렬 요청 중...");
     const dpsTypes = ["ndps", "dps", "rdps", "udps"];
@@ -1084,11 +1102,10 @@ async function reloadDatabase() {
     try {
         lostArkDatabase = await scrapeLiveStats(loadingTextEl);
         console.log("Database reloaded in real-time from API. Records:", lostArkDatabase.length);
+        updateApiStatus(true);
     } catch (e) {
         console.error("Failed to reload live database from API, using local fallback database.js:", e);
-        if (loadingTextEl) {
-            loadingTextEl.textContent = "실시간 API 로드 실패. 로컬 백업 데이터를 적용하는 중...";
-        }
+        updateApiStatus(false, e.message);
         if (typeof fallbackDatabase !== 'undefined') {
             lostArkDatabase = JSON.parse(JSON.stringify(fallbackDatabase));
         } else {
