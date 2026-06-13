@@ -18,7 +18,7 @@ const fallbackDatabase = [
     "class_eng": "Breaker",
     "class_kor": "브레이커",
     "spec_eng": "Asura's Path",
-    "spec_kor": "수라결",
+    "spec_kor": "수라의 길",
     "values": {
       "ndps": 70322,
       "dps": 182754,
@@ -57,7 +57,7 @@ const fallbackDatabase = [
     "class_eng": "Breaker",
     "class_kor": "브레이커",
     "spec_eng": "Brawl King Storm",
-    "spec_kor": "권왕태세",
+    "spec_kor": "권왕파천무",
     "values": {
       "ndps": 76345,
       "dps": 197214,
@@ -148,7 +148,7 @@ const fallbackDatabase = [
     "class_eng": "Guardianknight",
     "class_kor": "가디언나이트",
     "spec_eng": "Dreadful Roar",
-    "spec_kor": "끔찍한 포효",
+    "spec_kor": "드레드 로어",
     "values": {
       "ndps": 71148,
       "dps": 182346,
@@ -187,7 +187,7 @@ const fallbackDatabase = [
     "class_eng": "Deadeye",
     "class_kor": "데빌헌터",
     "spec_eng": "Enhanced Weapon",
-    "spec_kor": "강화 무기",
+    "spec_kor": "전술 탄환",
     "values": {
       "ndps": 70160,
       "dps": 182428,
@@ -237,7 +237,7 @@ const fallbackDatabase = [
   {
     "type": "spec",
     "class_eng": "Wildsoul",
-    "class_kor": "와일드소울",
+    "class_kor": "환수사",
     "spec_eng": "Ferality",
     "spec_kor": "야성",
     "values": {
@@ -484,7 +484,7 @@ const fallbackDatabase = [
   {
     "type": "spec",
     "class_eng": "Wildsoul",
-    "class_kor": "와일드소울",
+    "class_kor": "환수사",
     "spec_eng": "Phantom Beast Awakening",
     "spec_kor": "환수 각성",
     "values": {
@@ -668,7 +668,7 @@ const fallbackDatabase = [
     "class_eng": "Bard",
     "class_kor": "바드",
     "spec_eng": "True Courage",
-    "spec_kor": "진실된 용기",
+    "spec_kor": "진실된 용맹",
     "values": {
       "ndps": 68565,
       "dps": 189266,

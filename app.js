@@ -6,6 +6,8 @@ let slots = [];
 let nextSlotId = 1;
 let globalAverages = {};
 let cachedCpHash = null;
+let characterSlots = [null, null, null, null];
+let stoveApiKey = "";
 
 // Global Query State
 let currentBoss = "Corvus Tul Rak";
@@ -44,6 +46,28 @@ async function loadDatabase() {
     try {
         lostArkDatabase = await scrapeLiveStats(loadingTextEl);
         console.log("Database loaded in real-time from API. Records:", lostArkDatabase.length);
+        
+        // Merge missing specs from fallbackDatabase to ensure all classes/specs are always present
+        if (typeof fallbackDatabase !== 'undefined') {
+            let mergedCount = 0;
+            fallbackDatabase.forEach(fallbackItem => {
+                if (fallbackItem.type === 'spec') {
+                    const exists = lostArkDatabase.some(liveItem => 
+                        liveItem.type === 'spec' && 
+                        liveItem.class_eng === fallbackItem.class_eng && 
+                        liveItem.spec_eng === fallbackItem.spec_eng
+                    );
+                    if (!exists) {
+                        lostArkDatabase.push(JSON.parse(JSON.stringify(fallbackItem)));
+                        mergedCount++;
+                    }
+                }
+            });
+            if (mergedCount > 0) {
+                console.log(`Merged ${mergedCount} missing class specs from fallbackDatabase.`);
+            }
+        }
+        
         updateApiStatus(true);
     } catch (e) {
         console.error("Failed to load live database from API, using local fallback database.js:", e);
@@ -391,21 +415,30 @@ function setupEventListeners() {
             if (viewRankings && viewRankings.style.display === 'block') {
                 renderRankingsTable();
             }
+
+            const charResultsPanel = document.getElementById('char-results-panel');
+            if (charResultsPanel && charResultsPanel.style.display === 'block') {
+                calculateAndRenderCharacterDPS();
+            }
         });
     }
 
     // Initialize Tab Navigation
     const btnComp = document.getElementById('nav-btn-comparator');
     const btnRank = document.getElementById('nav-btn-rankings');
+    const btnChar = document.getElementById('nav-btn-character');
     const viewSetup = document.getElementById('view-setup');
     const viewResults = document.getElementById('view-results');
     const viewRankings = document.getElementById('view-rankings');
+    const viewChar = document.getElementById('view-character');
 
-    if (btnComp && btnRank && viewSetup && viewResults && viewRankings) {
+    if (btnComp && btnRank && btnChar && viewSetup && viewResults && viewRankings && viewChar) {
         btnComp.addEventListener('click', () => {
             btnComp.classList.add('active');
             btnRank.classList.remove('active');
+            btnChar.classList.remove('active');
             viewRankings.style.display = 'none';
+            viewChar.style.display = 'none';
             if (viewResults.style.display === 'block') {
                 viewSetup.style.display = 'none';
             } else {
@@ -416,10 +449,69 @@ function setupEventListeners() {
         btnRank.addEventListener('click', () => {
             btnRank.classList.add('active');
             btnComp.classList.remove('active');
+            btnChar.classList.remove('active');
             viewSetup.style.display = 'none';
             viewResults.style.display = 'none';
+            viewChar.style.display = 'none';
             viewRankings.style.display = 'block';
             renderRankingsTable();
+        });
+
+        btnChar.addEventListener('click', () => {
+            btnChar.classList.add('active');
+            btnComp.classList.remove('active');
+            btnRank.classList.remove('active');
+            viewSetup.style.display = 'none';
+            viewResults.style.display = 'none';
+            viewRankings.style.display = 'none';
+            viewChar.style.display = 'block';
+            initCharacterSlots();
+        });
+    }
+
+    // Initialize Stove API Key input
+    const savedKey = localStorage.getItem('stove_api_key') || "";
+    const apiKeyInput = document.getElementById('stove-api-key');
+    if (apiKeyInput) {
+        apiKeyInput.value = savedKey;
+        stoveApiKey = savedKey;
+    }
+
+    // Save and Clear Key Buttons
+    const btnSaveKey = document.getElementById('btn-save-key');
+    const btnClearKey = document.getElementById('btn-clear-key');
+    if (btnSaveKey && btnClearKey && apiKeyInput) {
+        btnSaveKey.addEventListener('click', () => {
+            const key = apiKeyInput.value.trim();
+            if (key) {
+                localStorage.setItem('stove_api_key', key);
+                stoveApiKey = key;
+                alert("Stove API Key가 저장되었습니다!");
+            } else {
+                alert("API 키를 입력해 주세요.");
+            }
+        });
+        btnClearKey.addEventListener('click', () => {
+            localStorage.removeItem('stove_api_key');
+            apiKeyInput.value = "";
+            stoveApiKey = "";
+            alert("저장된 API 키가 삭제되었습니다.");
+        });
+    }
+
+    // Setup slot fetch buttons
+    for (let slotId = 1; slotId <= 4; slotId++) {
+        const btn = document.querySelector(`.btn-fetch-char[data-slot="${slotId}"]`);
+        if (btn) {
+            btn.addEventListener('click', () => fetchCharacterForSlot(slotId));
+        }
+    }
+
+    // Compare characters button
+    const btnCompareChars = document.getElementById('btn-compare-chars');
+    if (btnCompareChars) {
+        btnCompareChars.addEventListener('click', () => {
+            calculateAndRenderCharacterDPS();
         });
     }
 }
@@ -708,18 +800,18 @@ const CLASS_MAP = {
     "Sharpshooter": "호크아이", "Slayer": "슬레이어", "Sorceress": "소서리스",
     "Souleater": "소울이터", "Soulfist": "기공사", "Striker": "스트라이커",
     "Summoner": "서머너", "Valkyrie": "발키리", "Wardancer": "배틀마스터",
-    "Wildsoul": "와일드소울"
+    "Wildsoul": "환수사"
 };
 
 const SPEC_MAP = {
     "Drizzle": "이슬비", "Wind Fury": "질풍노도", "Grace of the Empress": "황후의 은총",
     "Order of the Emperor": "황제의 칙령", "Barrage Enhancement": "포격 강화",
-    "Firepower Enhancement": "화력 강화", "Recurrence": "회귀", "True Courage": "진실된 용기",
-    "Berserker Technique": "광전사의 비기", "Mayhem": "광기", "Asura's Path": "수라결",
-    "Brawl King Storm": "권왕태세", "Enhanced Weapon": "강화 무기", "Pistoleer": "핸드거너",
+    "Firepower Enhancement": "화력 강화", "Recurrence": "회귀", "True Courage": "진실된 용맹",
+    "Berserker Technique": "광전사의 비기", "Mayhem": "광기", "Asura's Path": "수라의 길",
+    "Brawl King Storm": "권왕파천무", "Enhanced Weapon": "전술 탄환", "Pistoleer": "핸드거너",
     "Remaining Energy": "잔재된 기운", "Surge": "버스트", "Gravity Training": "중력 수련",
     "Rage Hammer": "분노의 망치", "Control": "절제", "Pinnacle": "절정",
-    "Dreadful Roar": "끔찍한 포효", "Hellfire Successor": "업화의 계승자", "Combat Readiness": "전투 태세",
+    "Dreadful Roar": "드레드 로어", "Hellfire Successor": "업화의 계승자", "Combat Readiness": "전투 태세",
     "Lone Knight": "고독한 기사", "Peacemaker": "피스메이커", "Time to Hunt": "사냥의 시간",
     "Arthetinean Skill": "아르데타인의 기술", "Evolutionary Legacy": "진화의 유산",
     "Judgment": "심판자", "Hunger": "갈증", "Lunar Voice": "달의 소리", "Shock Training": "충격 단련",
@@ -944,6 +1036,7 @@ async function scrapeLiveStats(loadingTextEl) {
             class_kor: CLASS_MAP[className] || className,
             spec_eng: spec,
             spec_kor: SPEC_MAP[spec] || spec,
+            count: entry.count || 0,
             values: {
                 ndps: 0,
                 dps: 0,
@@ -962,6 +1055,9 @@ async function scrapeLiveStats(loadingTextEl) {
             
             if (specsDb[key]) {
                 specsDb[key].values[dpsType] = Math.round(entry.avg || 0);
+                if (entry.count && entry.count > (specsDb[key].count || 0)) {
+                    specsDb[key].count = entry.count;
+                }
             }
         }
     }
@@ -1210,12 +1306,14 @@ function renderRankingsTable() {
         const ndpsText = formatNumber(item.values.ndps || 0);
         const dpsText = formatNumber(item.values.dps || 0);
         const rdpsText = formatNumber(item.values.rdps || 0);
+        const countText = item.count !== undefined ? item.count.toLocaleString() : '-';
 
         html += `
             <tr class="${rowClass}">
                 <td style="text-align: center; padding: 0.8rem;"><span class="rank-badge">${rank}</span></td>
                 <td style="padding: 0.8rem; font-weight: 500; font-family: var(--font-heading);">${item.class_kor}</td>
                 <td style="padding: 0.8rem; color: var(--text-secondary);">${item.spec_kor}</td>
+                <td style="padding: 0.8rem; text-align: center; color: var(--text-muted); font-family: var(--font-heading);">${countText}</td>
                 <td style="padding: 0.8rem; text-align: right; font-family: var(--font-heading); font-weight: 600; ${rankingMetric === 'udps' ? 'color: var(--accent-purple); font-size: 1.05rem;' : ''}">${udpsText}</td>
                 <td style="padding: 0.8rem; text-align: right; font-family: var(--font-heading); font-weight: 600; ${rankingMetric === 'ndps' ? 'color: var(--accent-purple); font-size: 1.05rem;' : ''}">${ndpsText}</td>
                 <td style="padding: 0.8rem; text-align: right; font-family: var(--font-heading); font-weight: 600; ${rankingMetric === 'dps' ? 'color: var(--accent-purple); font-size: 1.05rem;' : ''}">${dpsText}</td>
@@ -1225,4 +1323,356 @@ function renderRankingsTable() {
         `;
     });
     tableBody.innerHTML = html;
+}
+
+// ==========================================
+// CHARACTER DPS COMPARATOR LOGIC (LOST ARK API)
+// ==========================================
+
+function initCharacterSlots() {
+    for (let slotId = 1; slotId <= 4; slotId++) {
+        if (!characterSlots[slotId - 1]) {
+            characterSlots[slotId - 1] = {
+                slotId: slotId,
+                name: "",
+                fetched: false,
+                class_kor: "",
+                spec_kor: null,
+                spec_eng: null,
+                combatPower: 0,
+                itemLevel: ""
+            };
+        }
+    }
+}
+
+function detectClassEngraving(effects, classKor) {
+    if (!effects || effects.length === 0) return null;
+    
+    const specs = lostArkDatabase.filter(item => item.type === 'spec' && item.class_kor === classKor);
+    const specNames = specs.map(s => s.spec_kor);
+    
+    for (const effect of effects) {
+        const engName = effect.Name.split(' ')[0];
+        if (specNames.includes(engName)) {
+            const foundSpec = specs.find(s => s.spec_kor === engName);
+            return {
+                spec_kor: foundSpec.spec_kor,
+                spec_eng: foundSpec.spec_eng
+            };
+        }
+    }
+    return null;
+}
+
+async function fetchStoveCharacterData(name, apiKey) {
+    const cleanName = name.trim();
+    if (!cleanName) throw new Error("캐릭터명을 입력해 주세요.");
+    
+    // 1. Fetch Profile
+    const profileUrl = `https://developer-lostark.game.onstove.com/armories/characters/${encodeURIComponent(cleanName)}/profiles`;
+    const pProfileUrl = `https://corsproxy.io/?url=${encodeURIComponent(profileUrl)}`;
+    
+    const profileResp = await fetch(pProfileUrl, {
+        headers: {
+            "accept": "application/json",
+            "authorization": `bearer ${apiKey}`
+        }
+    });
+    
+    if (!profileResp.ok) {
+        if (profileResp.status === 401) throw new Error("API 키가 올바르지 않습니다.");
+        if (profileResp.status === 429) throw new Error("API 요청 한도를 초과했습니다.");
+        throw new Error(`프로필 로드 실패 (HTTP ${profileResp.status})`);
+    }
+    
+    const profileData = await profileResp.json();
+    if (!profileData || !profileData.CharacterClassName) {
+        throw new Error("캐릭터 정보를 찾을 수 없습니다. (존재하지 않는 캐릭터)");
+    }
+    
+    // Extract Combat Power (전투력) from profileData.CombatPower (formatted as "4,918.91")
+    let combatPower = 0;
+    if (profileData.CombatPower) {
+        combatPower = parseFloat(profileData.CombatPower.replace(/,/g, ""));
+    }
+    
+    // Fallback: estimate from ItemAvgLevel if CombatPower is missing or null (e.g. inactive profile)
+    if (!combatPower || combatPower === 0) {
+        const itemLvlStr = profileData.ItemAvgLevel || "0";
+        const lvl = parseFloat(itemLvlStr.replace(/,/g, ""));
+        if (!isNaN(lvl) && lvl > 0) {
+            const diff = lvl - 1600;
+            if (diff < 0) {
+                combatPower = parseFloat((200 * Math.pow(1.02, diff)).toFixed(2));
+            } else {
+                combatPower = parseFloat((200 * Math.pow(1.0185, diff)).toFixed(2));
+            }
+        } else {
+            combatPower = 500.00; // default fallback
+        }
+    }
+    
+    // 2. Fetch Engravings
+    const engravingUrl = `https://developer-lostark.game.onstove.com/armories/characters/${encodeURIComponent(cleanName)}/engravings`;
+    const pEngravingUrl = `https://corsproxy.io/?url=${encodeURIComponent(engravingUrl)}`;
+    
+    let engravingsData = null;
+    try {
+        const engResp = await fetch(pEngravingUrl, {
+            headers: {
+                "accept": "application/json",
+                "authorization": `bearer ${apiKey}`
+            }
+        });
+        if (engResp.ok) {
+            engravingsData = await engResp.json();
+        }
+    } catch(e) {
+        console.warn("Engravings fetch failed, using manual fallback:", e);
+    }
+    
+    return {
+        name: cleanName,
+        class_kor: profileData.CharacterClassName,
+        itemLevel: profileData.ItemAvgLevel || "0",
+        combatPower: combatPower,
+        engravings: engravingsData ? engravingsData.Effects : null,
+        usingArkPassive: profileData.UsingArkPassive || false
+    };
+}
+
+async function fetchCharacterForSlot(slotId) {
+    const nameInput = document.getElementById(`char-name-${slotId}`);
+    const btn = document.querySelector(`.btn-fetch-char[data-slot="${slotId}"]`);
+    const infoEl = document.getElementById(`char-info-${slotId}`);
+    
+    if (!nameInput || !btn || !infoEl) return;
+    
+    const name = nameInput.value.trim();
+    if (!name) {
+        alert("캐릭터명을 입력해 주세요.");
+        return;
+    }
+    
+    if (!stoveApiKey) {
+        alert("Stove API Key를 먼저 입력 및 저장해 주세요.");
+        return;
+    }
+    
+    btn.disabled = true;
+    btn.textContent = "조회 중...";
+    infoEl.innerHTML = `<div style="text-align: center; width: 100%;"><div class="loading-spinner" style="width: 24px; height: 24px; border-width: 3px; display: inline-block;"></div><p style="font-size: 0.8rem; margin-top: 0.4rem; color: var(--text-muted);">데이터 불러오는 중...</p></div>`;
+    
+    try {
+        const charData = await fetchStoveCharacterData(name, stoveApiKey);
+        renderFetchedCharacter(slotId, charData);
+    } catch(err) {
+        console.error(err);
+        infoEl.innerHTML = `<span style="color: var(--accent-red); font-weight: 500; font-size: 0.8rem;">❌ 에러: ${err.message}</span>`;
+        if (characterSlots[slotId - 1]) {
+            characterSlots[slotId - 1].fetched = false;
+        }
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "조회";
+    }
+}
+
+function renderFetchedCharacter(slotId, charData) {
+    const infoEl = document.getElementById(`char-info-${slotId}`);
+    if (!infoEl) return;
+    
+    const specs = lostArkDatabase.filter(item => item.type === 'spec' && item.class_kor === charData.class_kor);
+    let detected = detectClassEngraving(charData.engravings, charData.class_kor);
+    
+    const slot = characterSlots[slotId - 1];
+    slot.fetched = true;
+    slot.name = charData.name;
+    slot.class_kor = charData.class_kor;
+    slot.itemLevel = charData.itemLevel;
+    slot.combatPower = charData.combatPower;
+    
+    if (detected) {
+        slot.spec_kor = detected.spec_kor;
+        slot.spec_eng = detected.spec_eng;
+    } else if (specs.length > 0) {
+        slot.spec_kor = specs[0].spec_kor;
+        slot.spec_eng = specs[0].spec_eng;
+    } else {
+        slot.spec_kor = null;
+        slot.spec_eng = null;
+    }
+    
+    infoEl.innerHTML = `
+        <div style="width: 100%; text-align: left; line-height: 1.5; font-family: var(--font-body);">
+            <strong>${charData.name}</strong> (${charData.class_kor})<br>
+            <div style="margin-top: 0.25rem; display: flex; flex-direction: column; gap: 0.15rem; font-size: 0.82rem; color: var(--text-secondary);">
+                <div>레벨: <strong style="color: var(--text-main);">${charData.itemLevel}</strong></div>
+                <div>전투력 (CP): <strong style="color: var(--text-main);">${slot.combatPower.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong></div>
+                <div>직업 각인: <strong style="color: var(--accent-purple);">${slot.spec_kor || '미지원 직업'}</strong></div>
+            </div>
+        </div>
+    `;
+}
+
+function calculateAndRenderCharacterDPS() {
+    const activeChars = characterSlots.filter(s => s && s.fetched && s.spec_kor !== null);
+    
+    if (activeChars.length < 2) {
+        alert("비교할 캐릭터를 2개 이상 조회해 주세요.");
+        return;
+    }
+    
+    activeChars.forEach(char => {
+        const specData = lostArkDatabase.find(item => item.type === 'spec' && item.class_kor === char.class_kor && item.spec_kor === char.spec_kor);
+        if (specData) {
+            const baselineVal = specData.values[currentMetric] || 0;
+            char.expectedDps = baselineVal * (char.combatPower / 10);
+            char.baselineVal = baselineVal;
+        } else {
+            char.expectedDps = 0;
+            char.baselineVal = 0;
+        }
+    });
+    
+    // Sort descending by expected DPS
+    activeChars.sort((a, b) => b.expectedDps - a.expectedDps);
+    
+    const resultsPanel = document.getElementById('char-results-panel');
+    if (resultsPanel) {
+        resultsPanel.style.display = 'block';
+        setTimeout(() => {
+            resultsPanel.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+    }
+    
+    renderCharacterChart(activeChars);
+    renderCharacterTable(activeChars);
+    renderCharacterSummary(activeChars);
+}
+
+function renderCharacterChart(activeChars) {
+    const container = document.getElementById('char-chart-container');
+    if (!container) return;
+    
+    const maxVal = Math.max(...activeChars.map(c => c.expectedDps));
+    const N = activeChars.length;
+    const rowHeight = 48;
+    const totalHeight = N * rowHeight + 10;
+    
+    let svgHtml = `<svg class="chart-svg" viewBox="0 0 580 ${totalHeight}" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: 100%;">`;
+    
+    activeChars.forEach((char, idx) => {
+        const val = char.expectedDps;
+        const ratioOfMax = maxVal > 0 ? val / maxVal : 0;
+        const barWidth = ratioOfMax * 280;
+        const y = 8 + idx * rowHeight;
+        
+        const colorClasses = [
+            'chart-bar-0',
+            'chart-bar-1',
+            'chart-bar-2',
+            'chart-bar-3'
+        ];
+        const colorClass = colorClasses[char.slotId - 1] || 'chart-bar-0';
+        
+        const label = `${char.name} (${char.spec_kor})`;
+        const valText = `${formatNumber(val)}`;
+        
+        svgHtml += `
+            <g>
+                <text x="10" y="${y + 12}" class="chart-text-name" fill="var(--text-secondary)" font-size="11px" font-family="var(--font-body)" font-weight="600">${label}</text>
+                <text x="10" y="${y + 24}" fill="var(--text-muted)" font-size="9px" font-family="var(--font-body)">레벨: ${char.itemLevel} | CP: ${char.combatPower.toLocaleString()}</text>
+                
+                <rect x="170" y="${y + 4}" width="280" height="18" class="chart-bar-bg" fill="rgba(255,255,255,0.03)" rx="6" />
+                
+                <rect x="170" y="${y + 4}" width="${barWidth}" height="18" class="chart-bar ${colorClass}" rx="6">
+                    <animate attributeName="width" from="0" to="${barWidth}" dur="0.8s" fill="freeze" calcMode="spline" keySplines="0.4 0 0.2 1" keyTimes="0 1" />
+                </rect>
+                
+                <text x="465" y="${y + 17}" class="chart-text-val" fill="var(--text-main)" font-size="12px" font-family="var(--font-heading)" font-weight="600">${valText}</text>
+            </g>
+        `;
+    });
+    
+    svgHtml += `</svg>`;
+    container.innerHTML = svgHtml;
+}
+
+function renderCharacterTable(activeChars) {
+    const tbody = document.querySelector('#char-results-table tbody');
+    if (!tbody) return;
+    
+    const maxVal = Math.max(...activeChars.map(c => c.expectedDps));
+    
+    let html = "";
+    activeChars.forEach(char => {
+        const val = char.expectedDps;
+        const ratio = maxVal > 0 ? val / maxVal : 0;
+        const diffPercent = ((ratio - 1) * 100).toFixed(1);
+        
+        let ratioText = "";
+        let ratioClass = "";
+        if (val === maxVal) {
+            ratioText = "최고 (1.00x)";
+            ratioClass = "multiplier-base";
+        } else {
+            ratioText = `${ratio.toFixed(2)}x (${diffPercent}%)`;
+            ratioClass = "multiplier-down";
+        }
+        
+        const dotClasses = ['color-dot-0', 'color-dot-1', 'color-dot-2', 'color-dot-3'];
+        const dotClass = dotClasses[char.slotId - 1];
+        
+        html += `
+            <tr>
+                <td>
+                    <span class="row-slot-label">
+                        <span class="color-dot ${dotClass}"></span>
+                        <strong>${char.name}</strong>
+                    </span>
+                </td>
+                <td>${char.class_kor} (${char.spec_kor})</td>
+                <td style="text-align: right; font-family: var(--font-heading);">${char.itemLevel}</td>
+                <td style="text-align: right; font-family: var(--font-heading); font-weight: 500;">${char.combatPower.toLocaleString()}</td>
+                <td style="text-align: right; font-family: var(--font-heading); font-weight: 700; color: var(--accent-purple);">${formatNumber(val)}</td>
+                <td style="text-align: right; font-family: var(--font-heading); font-weight: 600;" class="${ratioClass}">${ratioText}</td>
+            </tr>
+        `;
+    });
+    tbody.innerHTML = html;
+}
+
+function renderCharacterSummary(activeChars) {
+    const contentEl = document.getElementById('char-analysis-content');
+    if (!contentEl) return;
+    
+    const strongest = activeChars[0];
+    const weakest = activeChars[activeChars.length - 1];
+    
+    const ratio = strongest.expectedDps / weakest.expectedDps;
+    const diffPercent = ((ratio - 1) * 100).toFixed(1);
+    
+    let html = `
+        <div class="analysis-p">
+            조회된 캐릭터 중 기대 딜량이 가장 강력한 캐릭터는 <strong>${strongest.name}</strong> (${strongest.class_kor}·${strongest.spec_kor}) 입니다.
+            현재 선택된 지표 (<strong>${currentMetric.toUpperCase()}</strong>) 기준으로 예상되는 기대 DPS는 <span class="analysis-highlight" style="color: var(--accent-purple); font-weight:700;">${formatNumber(strongest.expectedDps)}</span> 입니다.
+        </div>
+    `;
+    
+    if (activeChars.length >= 2 && strongest.name !== weakest.name) {
+        html += `
+            <div class="analysis-p" style="margin-top: 0.8rem;">
+                가장 기대 딜량이 낮게 계산된 <strong>${weakest.name}</strong> (${weakest.class_kor}·${weakest.spec_kor}, 기대 DPS: ${formatNumber(weakest.expectedDps)})와 비교했을 때, 
+                두 캐릭터의 기대 딜량 격차는 약 <span class="analysis-diff-up">${ratio.toFixed(2)}배</span> (+${diffPercent}%)에 달합니다.
+            </div>
+            <div class="analysis-p" style="margin-top: 0.8rem; color: var(--text-muted); font-size: 0.82rem;">
+                💡 이 비교 결과는 각 캐릭터의 공식 전투력(CP)과 바이블 실시간 통계 기준 직각 성능 계수(지표당 DPS)를 선형 결합하여 산출한 기대치입니다. 
+                실제 레이드에서는 서포터의 시너지 배율, 공대 시너지 구성, 그리고 유저의 딜 사이클 숙련도에 따라 실제 딜량이 다를 수 있습니다.
+            </div>
+        `;
+    }
+    
+    contentEl.innerHTML = html;
 }

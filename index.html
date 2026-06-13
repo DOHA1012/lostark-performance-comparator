@@ -25,6 +25,7 @@
         <nav class="app-nav">
             <button id="nav-btn-comparator" class="nav-tab active">⚔️ 성능 비교기 (Comparator)</button>
             <button id="nav-btn-rankings" class="nav-tab">🏆 전체 순위표 (Rankings Table)</button>
+            <button id="nav-btn-character" class="nav-tab">👤 캐릭터 전투력 비교기 (Character)</button>
         </nav>
 
         <!-- Loading Overlay -->
@@ -61,7 +62,7 @@
                 <div class="slot-filter-field">
                     <label for="global-metric-select">비교 지표 (Metric)</label>
                     <select id="global-metric-select">
-                        <option value="udps" selected>uDPS (Ultimate DPS)</option>
+                        <option value="udps" selected>uDPS (Unbuffed DPS)</option>
                         <option value="ndps">nDPS (Normal DPS)</option>
                         <option value="dps">DPS (Raw DPS)</option>
                         <option value="rdps">rDPS (Synergy DPS)</option>
@@ -196,7 +197,7 @@
                     <div class="glass-card metric-card" id="card-udps">
                         <div class="metric-header">
                             <h3>uDPS 성능</h3>
-                            <span class="badge badge-red">Ultimate DPS</span>
+                            <span class="badge badge-red">Unbuffed DPS</span>
                         </div>
                         <div class="chart-container"></div>
                         <div class="metric-table-container">
@@ -247,6 +248,7 @@
                                 <th style="text-align: center; width: 80px;">순위</th>
                                 <th>직업 (Class)</th>
                                 <th>직업 각인 (Engraving)</th>
+                                <th style="text-align: center; width: 100px;">지표 수</th>
                                 <th style="text-align: right; width: 140px;">uDPS</th>
                                 <th style="text-align: right; width: 140px;">nDPS</th>
                                 <th style="text-align: right; width: 140px;">Raw DPS</th>
@@ -262,9 +264,160 @@
             </section>
         </div>
 
+        <!-- ================= PAGE 4: CHARACTER COMPARATOR VIEW ================= -->
+        <div id="view-character" class="page-view" style="display: none;">
+            <section class="glass-card character-api-section" style="margin-bottom: 2rem; padding: 1.5rem;">
+                <h2 class="section-title" style="margin-bottom: 1.2rem; font-size: 1.25rem; display: flex; align-items: center; gap: 0.5rem;">👤 로스트아크 공식 API 설정 (Stove API Key)</h2>
+                <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1.2rem; line-height: 1.6;">
+                    캐릭터 정보를 조회하기 위해 Stove 개발자 센터(<a href="https://developer-lostark.game.onstove.com/" target="_blank" style="color: var(--accent-purple); text-decoration: none; font-weight: 600;">https://developer-lostark.game.onstove.com/</a>)에서 발급받은 API 키가 필요합니다. 입력된 키는 외부 서버로 전송되지 않고 브라우저 로컬 저장소에만 안전하게 저장됩니다.
+                </p>
+                <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 280px; display: flex; flex-direction: column; gap: 0.4rem;">
+                        <label for="stove-api-key" style="font-size: 0.85rem; font-weight: 500; color: var(--text-secondary);">Stove OpenAPI Key (JWT Token)</label>
+                        <input type="password" id="stove-api-key" placeholder="Bearer eyJhbGciOi..." style="width: 100%; background: rgba(9, 11, 20, 0.85); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 10px; color: var(--text-main); padding: 0.8rem 1rem; font-size: 0.95rem; outline: none; transition: border-color var(--transition-fast);">
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; margin-top: 1.4rem;">
+                        <button id="btn-save-key" class="btn btn-primary" style="padding: 0.8rem 1.5rem; border-radius: 10px;">저장 (Save)</button>
+                        <button id="btn-clear-key" class="btn" style="background: rgba(244, 63, 94, 0.15); border: 1px solid rgba(244, 63, 94, 0.3); color: var(--accent-red); padding: 0.8rem 1.5rem; border-radius: 10px;">지우기</button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="glass-card character-slots-section" style="margin-bottom: 2rem;">
+                <h2 class="section-title">🔍 캐릭터 조회 및 비교 (Compare Characters)</h2>
+                
+                <!-- Character Slots Grid -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;" id="char-slots-container">
+                    <!-- Slot 1 -->
+                    <div class="slot-card" id="char-card-1" style="background: rgba(18, 22, 38, 0.7); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 14px; padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; position: relative; overflow: hidden; transition: all var(--transition-normal);">
+                        <div class="slot-title-bar" style="display: flex; justify-content: space-between; align-items: center;">
+                            <span class="slot-number" style="color: var(--accent-purple); font-family: var(--font-heading); font-weight: 700;">캐릭터 1</span>
+                        </div>
+                        <div class="slot-filters-stack" style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem;">
+                            <div class="slot-filter-field" style="display: flex; flex-direction: column; gap: 0.35rem;">
+                                <label for="char-name-1" style="font-family: var(--font-heading); font-size: 0.8rem; font-weight: 500; color: var(--text-secondary);">캐릭터명 (Name)</label>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <input type="text" id="char-name-1" placeholder="캐릭터명 입력" style="flex: 1; background: rgba(9, 11, 20, 0.85); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 8px; color: var(--text-main); padding: 0.5rem 0.75rem; font-size: 0.9rem; outline: none;">
+                                    <button class="btn btn-primary btn-fetch-char" data-slot="1" style="padding: 0.5rem 1rem; font-size: 0.85rem; border-radius: 8px;">조회</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="slot-selection-info" id="char-info-1" style="font-size: 0.85rem; color: var(--text-muted); background: rgba(0, 0, 0, 0.2); padding: 0.6rem; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.03); min-height: 85px; display: flex; align-items: center; justify-content: center; text-align: center; word-break: break-all;">
+                            조회된 캐릭터가 없습니다.
+                        </div>
+                    </div>
+
+                    <!-- Slot 2 -->
+                    <div class="slot-card" id="char-card-2" style="background: rgba(18, 22, 38, 0.7); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 14px; padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; position: relative; overflow: hidden; transition: all var(--transition-normal);">
+                        <div class="slot-title-bar" style="display: flex; justify-content: space-between; align-items: center;">
+                            <span class="slot-number" style="color: var(--accent-blue); font-family: var(--font-heading); font-weight: 700;">캐릭터 2</span>
+                        </div>
+                        <div class="slot-filters-stack" style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem;">
+                            <div class="slot-filter-field" style="display: flex; flex-direction: column; gap: 0.35rem;">
+                                <label for="char-name-2" style="font-family: var(--font-heading); font-size: 0.8rem; font-weight: 500; color: var(--text-secondary);">캐릭터명 (Name)</label>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <input type="text" id="char-name-2" placeholder="캐릭터명 입력" style="flex: 1; background: rgba(9, 11, 20, 0.85); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 8px; color: var(--text-main); padding: 0.5rem 0.75rem; font-size: 0.9rem; outline: none;">
+                                    <button class="btn btn-primary btn-fetch-char" data-slot="2" style="padding: 0.5rem 1rem; font-size: 0.85rem; border-radius: 8px;">조회</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="slot-selection-info" id="char-info-2" style="font-size: 0.85rem; color: var(--text-muted); background: rgba(0, 0, 0, 0.2); padding: 0.6rem; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.03); min-height: 85px; display: flex; align-items: center; justify-content: center; text-align: center; word-break: break-all;">
+                            조회된 캐릭터가 없습니다.
+                        </div>
+                    </div>
+
+                    <!-- Slot 3 -->
+                    <div class="slot-card" id="char-card-3" style="background: rgba(18, 22, 38, 0.7); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 14px; padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; position: relative; overflow: hidden; transition: all var(--transition-normal);">
+                        <div class="slot-title-bar" style="display: flex; justify-content: space-between; align-items: center;">
+                            <span class="slot-number" style="color: var(--accent-emerald); font-family: var(--font-heading); font-weight: 700;">캐릭터 3</span>
+                        </div>
+                        <div class="slot-filters-stack" style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem;">
+                            <div class="slot-filter-field" style="display: flex; flex-direction: column; gap: 0.35rem;">
+                                <label for="char-name-3" style="font-family: var(--font-heading); font-size: 0.8rem; font-weight: 500; color: var(--text-secondary);">캐릭터명 (Name)</label>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <input type="text" id="char-name-3" placeholder="캐릭터명 입력" style="flex: 1; background: rgba(9, 11, 20, 0.85); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 8px; color: var(--text-main); padding: 0.5rem 0.75rem; font-size: 0.9rem; outline: none;">
+                                    <button class="btn btn-primary btn-fetch-char" data-slot="3" style="padding: 0.5rem 1rem; font-size: 0.85rem; border-radius: 8px;">조회</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="slot-selection-info" id="char-info-3" style="font-size: 0.85rem; color: var(--text-muted); background: rgba(0, 0, 0, 0.2); padding: 0.6rem; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.03); min-height: 85px; display: flex; align-items: center; justify-content: center; text-align: center; word-break: break-all;">
+                            조회된 캐릭터가 없습니다.
+                        </div>
+                    </div>
+
+                    <!-- Slot 4 -->
+                    <div class="slot-card" id="char-card-4" style="background: rgba(18, 22, 38, 0.7); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 14px; padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; position: relative; overflow: hidden; transition: all var(--transition-normal);">
+                        <div class="slot-title-bar" style="display: flex; justify-content: space-between; align-items: center;">
+                            <span class="slot-number" style="color: var(--accent-gold); font-family: var(--font-heading); font-weight: 700;">캐릭터 4</span>
+                        </div>
+                        <div class="slot-filters-stack" style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem;">
+                            <div class="slot-filter-field" style="display: flex; flex-direction: column; gap: 0.35rem;">
+                                <label for="char-name-4" style="font-family: var(--font-heading); font-size: 0.8rem; font-weight: 500; color: var(--text-secondary);">캐릭터명 (Name)</label>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <input type="text" id="char-name-4" placeholder="캐릭터명 입력" style="flex: 1; background: rgba(9, 11, 20, 0.85); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 8px; color: var(--text-main); padding: 0.5rem 0.75rem; font-size: 0.9rem; outline: none;">
+                                    <button class="btn btn-primary btn-fetch-char" data-slot="4" style="padding: 0.5rem 1rem; font-size: 0.85rem; border-radius: 8px;">조회</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="slot-selection-info" id="char-info-4" style="font-size: 0.85rem; color: var(--text-muted); background: rgba(0, 0, 0, 0.2); padding: 0.6rem; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.03); min-height: 85px; display: flex; align-items: center; justify-content: center; text-align: center; word-break: break-all;">
+                            조회된 캐릭터가 없습니다.
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="display: flex; justify-content: center; margin-top: 2rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 1.5rem;">
+                    <button id="btn-compare-chars" class="btn btn-primary" style="padding: 1rem 3rem; font-size: 1.1rem; border-radius: 12px; font-weight: 700; box-shadow: 0 0 25px rgba(168, 85, 247, 0.45);">
+                        👤 캐릭터 기대 DPS 비교하기 (Compare expected DPS)
+                    </button>
+                </div>
+            </section>
+
+            <!-- Character Results Section -->
+            <section class="glass-card character-results-section" id="char-results-panel" style="display: none; margin-bottom: 2rem;">
+                <h2 class="section-title" style="margin-bottom: 1.5rem;">📊 캐릭터별 기대 DPS 비교 결과</h2>
+                <div class="results-layout">
+                    <div>
+                        <!-- Custom SVG Chart -->
+                        <div class="chart-container" id="char-chart-container" style="height: auto; min-height: 200px; margin-bottom: 1.5rem;">
+                            <!-- SVG chart will render here -->
+                        </div>
+                        
+                        <!-- Table -->
+                        <div class="metric-table-container">
+                            <table class="metric-table" id="char-results-table">
+                                <thead>
+                                    <tr>
+                                        <th>캐릭터명</th>
+                                        <th>직업 (각인)</th>
+                                        <th style="text-align: right; width: 140px;">아이템 레벨</th>
+                                        <th style="text-align: right; width: 160px;">전투력 (CP)</th>
+                                        <th style="text-align: right; width: 180px;">기대 DPS</th>
+                                        <th style="text-align: right; width: 180px;">최고 대비 비율</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Filled dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Sidebar info -->
+                    <div class="summary-sidebar">
+                        <div class="glass-card" style="background: rgba(18, 22, 38, 0.5); border: 1px solid rgba(255,255,255,0.04); padding: 1.25rem;">
+                            <h3 class="section-title" style="font-size: 1.1rem; margin-bottom: 0.8rem;">💡 캐릭터 비교 요약</h3>
+                            <div id="char-analysis-content" class="analysis-content" style="font-size: 0.9rem; line-height: 1.7;">
+                                <!-- Summary text -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
         <!-- App Footer -->
         <footer class="app-footer-bar">
-            <p>Data from lostark.bible | Nightmare Difficulty (ilvl 1740-1810) | Combined Patches Database</p>
+            <p>Data from lostark.bible | Nightmare Difficulty (ilvl 1740-1810) | Combined Patches Database | Powered by Stove Lost Ark API</p>
         </footer>
     </div>
 
