@@ -390,6 +390,19 @@ select:focus {
     color: #ffffff;
 }
 
+.btn-secondary {
+    background: rgba(168, 85, 247, 0.12);
+    border: 1px solid rgba(168, 85, 247, 0.25);
+    color: var(--accent-purple);
+}
+
+.btn-secondary:hover {
+    background: rgba(168, 85, 247, 0.25);
+    border-color: rgba(168, 85, 247, 0.45);
+    color: #ffffff;
+    transform: translateY(-1px);
+}
+
 .slot-selection-info {
     font-size: 0.85rem;
     color: var(--text-muted);
@@ -931,4 +944,55 @@ select:focus {
     color: #ffffff;
     box-shadow: 0 0 8px rgba(234, 88, 12, 0.4);
 }
+
+/* Results Meta Banner */
+.results-meta-banner {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 0.9rem 1.25rem;
+    background: rgba(168, 85, 247, 0.05);
+    border: 1px solid rgba(168, 85, 247, 0.15);
+    border-radius: 12px;
+    font-size: 0.95rem;
+    color: var(--text-main);
+    flex-wrap: wrap;
+}
+
+.results-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.results-meta-label {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.results-meta-value {
+    font-weight: 600;
+    color: var(--accent-purple);
+}
+
+.results-meta-divider {
+    width: 1px;
+    height: 16px;
+    background: rgba(255, 255, 255, 0.12);
+}
+
+@media (max-width: 640px) {
+    .results-meta-banner {
+        gap: 0.8rem;
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .results-meta-divider {
+        display: none;
+    }
+}
+
 
